@@ -1,0 +1,12 @@
+services:
+  documentos-db:
+    image: postgres:18-alpine
+    ports: ['5432:5432']
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+  sftp:
+    image: atmoz/sftp
+    ports: ['2222:22']
+    command: nas:nas:::upload

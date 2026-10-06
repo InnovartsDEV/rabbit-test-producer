@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OutboxStatus {
+  PENDING // escrito en la BD, aun no publicado en RabbitMQ
+  SENT // publicado en el exchange (publisher confirm recibido)
+  CONFIRMED // el consumer reporto que guardo el documento
+  FAILED // agoto reintentos de publicacion o el consumer reporto error
+}
+
+enum OutboxDestino {
+  NAS
+  BD
+}
+
+model Documento {
+  id             String   @id @default(uuid()) @db.Uuid
+  title          String?  @db.VarChar(255)
+  author         String?  @db.VarChar(255)
+  filename       String   @db.VarChar(255)
+  mimeType       String   @db.VarChar(100)
+  fileSize       Int
+  tempPath       String   @db.Text
+  // clave que manda el cliente: reintentos del mismo request no duplican
+  idempotencyKey String?  @unique @db.VarChar(255)
+  // agrupa los documentos subidos en una misma peticion por lote
+  loteId         String?  @db.Uuid
+  // veces que se reintentaron los eventos porque NAS y BD fallaron a la vez
+  reintentos     Int      @default(0)
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  eventos OutboxEvent[]
+
+  @@index([loteId])
+}
+
+model OutboxEvent {
+  id          String        @id @default(uuid()) @db.Uuid
+  documentoId String        @db.Uuid
+  destino     OutboxDestino
+  routingKey  String        @db.VarChar(100)
+  payload     Json
+  status      OutboxStatus  @default(PENDING)
+  attempts    Int           @default(0)
+  lastError   String?       @db.Text
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  sentAt      DateTime?     @db.Timestamptz(6)
+  confirmedAt DateTime?     @db.Timestamptz(6)
+  updatedAt   DateTime      @default(now()) @updatedAt @db.Timestamptz(6)
+
+  documento Documento @relation(fields: [documentoId], references: [id])
+
+  @@unique([documentoId, destino])
+  @@index([status, createdAt])
+}

@@ -1,0 +1,29 @@
+services:
+  rabbitmq:
+    restart: unless-stopped
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 5s
+      retries: 20
+    image: rabbitmq:3-management-alpine
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+
+  outbox-db:
+    restart: unless-stopped
+    image: postgres:18-alpine
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: outbox
+    volumes:
+      - outbox-data:/var/lib/postgresql
+
+volumes:
+  outbox-data:

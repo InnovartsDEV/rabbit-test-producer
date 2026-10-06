@@ -1,0 +1,2 @@
+-- CreateEnum
+CREATE TYPE "STATUS" AS ENUM ('VERDADERO', 'FALSO');
