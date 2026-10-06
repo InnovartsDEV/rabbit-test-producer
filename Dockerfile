@@ -9,7 +9,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm build
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" pnpm exec prisma generate \
+ && pnpm build
 
 # ---------- runtime: solo dependencias de produccion ----------
 FROM node:22-bookworm-slim AS runtime
