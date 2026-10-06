@@ -1,0 +1,13 @@
+node_modules
+dist
+tmp-uploads
+experiments
+test
+.git
+.env
+.env.*
+!.env.example
+*.log
+docker-compose*.yml
+Dockerfile
+README.md

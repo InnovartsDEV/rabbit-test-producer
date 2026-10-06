@@ -1,29 +1,49 @@
+# Publisher + su Postgres (outbox). RabbitMQ vive en otro compose/contenedor:
+# el publisher se une a su red (RABBIT_NETWORK) y lo alcanza por nombre de contenedor.
+#
+#   cp .env.example .env     # completar RABBITMQ_URI, RABBIT_NETWORK, FILES_TOKEN...
+#   docker compose up -d --build
 services:
-  rabbitmq:
+  publisher:
+    build: .
+    image: rabbit-test-producer:latest
     restart: unless-stopped
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 5s
-      retries: 20
-    image: rabbitmq:3-management-alpine
-    ports:
-      - '5672:5672'
-      - '15672:15672'
+    depends_on:
+      outbox-db:
+        condition: service_healthy
+    env_file: ${ENV_FILE:-.env}
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin
+      # dentro de la red de compose la BD se llama outbox-db (no localhost)
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-password}@outbox-db:5432/outbox?schema=public
+      PORT: "3000"
+    ports:
+      - '${PORT:-3000}:3000'
+    volumes:
+      - tmp-uploads:/app/tmp-uploads
+    networks:
+      - default
+      - rabbit
 
   outbox-db:
-    restart: unless-stopped
     image: postgres:18-alpine
-    ports:
-      - '5433:5432'
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: outbox
     volumes:
       - outbox-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d outbox']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  rabbit:
+    external: true
+    name: ${RABBIT_NETWORK:-rabbitmq_default}
 
 volumes:
+  tmp-uploads:
   outbox-data:
